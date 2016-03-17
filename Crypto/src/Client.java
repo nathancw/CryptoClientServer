@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStreamWriter;
+import java.math.BigInteger;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
@@ -40,6 +41,7 @@ public class Client {
 	PrivateKey alicePrivateKey;
 	PublicKey bobPublicKey;
 	SecretKey atobSecretKey;
+	int aliceDHPrivate;
 	
 	public static void main(String args[])
     {
@@ -47,17 +49,26 @@ public class Client {
 		Client client = new Client();
 		byte[] secretKey;
 		byte [] encryptedText = null;
-        
+		byte [] encryptedMessage = null;
 		
+		byte[] message = {'1','a','b','c','1','a','b','c','1','a','b','c','1','a','b','c'};
+        
+		//Encrypt the secret key generated in the client
 		try {
 			Cipher RSAencrKey = Cipher.getInstance("RSA/ECB/NoPadding");
 			try {
 				//Try to encrypt the key
 				RSAencrKey.init(Cipher.ENCRYPT_MODE, client.getBobPublicKey());
 				secretKey = client.getatobSecretKey().getEncoded();
+				
+				Cipher AESencrypt = Cipher.getInstance("AES/ECB/NoPadding");
+				AESencrypt.init(Cipher.ENCRYPT_MODE, client.getatobSecretKey());
+				
 				try {
 					//Do the encryption.
 					encryptedText = RSAencrKey.doFinal(secretKey);
+					encryptedMessage = AESencrypt.doFinal(message);
+					
 				} catch (IllegalBlockSizeException e) {
 					e.printStackTrace();
 				} catch (BadPaddingException e) {
@@ -71,26 +82,68 @@ public class Client {
 		} catch (NoSuchPaddingException e) {
 			e.printStackTrace();
 		}
-        
+       ///////////////////////////
+		
 		System.out.println("EncryptedText:" + encryptedText);
 		
+		//Send the key to the server
 		DataInputStream dIn;
 		DataOutputStream dos;
 		//Try to write the encrypted text to the server
 		try {
 			System.out.println("Sending text to bob: " + Arrays.toString(encryptedText));
 			dos = new DataOutputStream(client.getServerSocket().getOutputStream());
-			dIn = new DataInputStream(client.getServerSocket().getInputStream());
 			dos.writeInt(encryptedText.length);
 			dos.write(encryptedText);
+			
+			dos.writeInt(encryptedMessage.length);
+			dos.write(encryptedMessage);
+			
 			
 			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-        
+       ////////////////////////////////////
+		
+		//Read in Bob's DH Protocol values
+		try {
+			dIn = new DataInputStream(client.getServerSocket().getInputStream());
+			int pLength = dIn.readInt();
+			byte[] p = new byte[pLength];
+			dIn.read(p);
+			BigInteger pValue = new BigInteger(p);
+			
+			
+			int gLength = dIn.readInt();
+			byte[] g = new byte[gLength];
+			dIn.read(g);
+			BigInteger gValue = new BigInteger(g);
+			
+			int bLength = dIn.readInt();
+			byte[] b = new byte[bLength];
+			dIn.read(b);
+			BigInteger bValue = new BigInteger(b);
+			
+			BigInteger aliceValue = client.computeDHValue(pValue,gValue,bValue);
+			
+			dIn.read(g);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		/////////////////////////////////////////////
     }
+	
+	public BigInteger computeDHValue(BigInteger p, BigInteger g, BigInteger bValue){
+		
+		this.aliceDHPrivate = 287398921;
+		
+		
+		return bValue;
+		
+		
+	}
 	
 	
 	private Socket getServerSocket() {
