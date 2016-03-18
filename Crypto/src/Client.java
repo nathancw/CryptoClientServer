@@ -42,6 +42,8 @@ public class Client {
 	PublicKey bobPublicKey;
 	SecretKey atobSecretKey;
 	int aliceDHPrivate;
+	BigInteger DHsecretKey;
+	BigInteger aliceValue;
 	
 	public static void main(String args[])
     {
@@ -99,7 +101,7 @@ public class Client {
 			dos.writeInt(encryptedMessage.length);
 			dos.write(encryptedMessage);
 			
-			
+			System.out.println("Done writing to Bob/Server");
 			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -109,6 +111,7 @@ public class Client {
 		
 		//Read in Bob's DH Protocol values
 		try {
+			System.out.println("Trying to read in the values for DH protocol from Bob.");
 			dIn = new DataInputStream(client.getServerSocket().getInputStream());
 			int pLength = dIn.readInt();
 			byte[] p = new byte[pLength];
@@ -125,22 +128,40 @@ public class Client {
 			byte[] b = new byte[bLength];
 			dIn.read(b);
 			BigInteger bValue = new BigInteger(b);
+		
+			System.out.println("Read in DH Values from Bob/Server P: " + pValue + " , G: " + gValue + " , bValue: " + bValue);
+			//Compute the values
+			client.computeDHValue(pValue,gValue,bValue);
+
+			dos = new DataOutputStream(client.getServerSocket().getOutputStream());
+			dos.writeInt(client.getAliceValue().toByteArray().length);
+			dos.write(client.getAliceValue().toByteArray());
 			
-			BigInteger aliceValue = client.computeDHValue(pValue,gValue,bValue);
-			
-			dIn.read(g);
+		
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		/////////////////////////////////////////////
     }
 	
-	public BigInteger computeDHValue(BigInteger p, BigInteger g, BigInteger bValue){
+	private BigInteger getAliceValue() {
+		return aliceValue;
+	}
+
+	private BigInteger getDHsecretKey() {
+
+		return DHsecretKey;
+	}
+
+	public void computeDHValue(BigInteger p, BigInteger g, BigInteger bValue){
 		
-		this.aliceDHPrivate = 287398921;
+		this.aliceDHPrivate = 283;
+		this.aliceValue = g.pow(aliceDHPrivate).mod(p);
 		
+		System.out.println("Read in DH Values from Bob/Server inside computeDHValue AliceValue: " + aliceValue);
+		this.DHsecretKey = bValue.pow(aliceDHPrivate).mod(p);
 		
-		return bValue;
+		System.out.println("Got DHSecretKey: " + DHsecretKey);
 		
 		
 	}
