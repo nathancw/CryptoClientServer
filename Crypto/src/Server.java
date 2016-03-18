@@ -41,6 +41,7 @@ public class Server {
 	BigInteger gBigInt;
 	BigInteger pBigInt;
 	BigInteger secretKeyBigInt;
+	SecretKey btoaSecretKey;
 	
 	public static void main(String args[])
     {
@@ -146,6 +147,10 @@ public class Server {
 
 			this.secretKeyBigInt = aliceNum.pow(bDHPrivate).mod(pBigInt);
 			System.out.println("Computed Shared Secret Key DH Value: " + secretKeyBigInt);
+			
+			btoaSecretKey = new SecretKeySpec(secretKeyBigInt.toByteArray(), 0, secretKeyBigInt.toByteArray().length, "AES");
+			
+			System.out.println("New DH shared secret key: " +  Arrays.toString(btoaSecretKey.getEncoded()));
 			
 		} catch (IOException e) {
 			e.printStackTrace();

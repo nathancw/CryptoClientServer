@@ -30,6 +30,7 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 public class Client {
 
@@ -44,6 +45,7 @@ public class Client {
 	int aliceDHPrivate;
 	BigInteger DHsecretKey;
 	BigInteger aliceValue;
+	SecretKey btoaSecretKey;
 	
 	public static void main(String args[])
     {
@@ -163,6 +165,9 @@ public class Client {
 		
 		System.out.println("Got DHSecretKey: " + DHsecretKey);
 		
+		btoaSecretKey = new SecretKeySpec(DHsecretKey.toByteArray(), 0, DHsecretKey.toByteArray().length, "AES");
+		
+		System.out.println("New DH shared secret key: " + Arrays.toString(btoaSecretKey.getEncoded()));
 		
 	}
 	
