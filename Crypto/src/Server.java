@@ -1,6 +1,7 @@
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -12,13 +13,19 @@ import java.security.AlgorithmParameterGenerator;
 import java.security.AlgorithmParameters;
 import java.security.InvalidKeyException;
 import java.security.Key;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.Signature;
+import java.security.SignatureException;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.InvalidParameterSpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 //import java.util.Base64;
 
@@ -33,9 +40,11 @@ import javax.crypto.spec.SecretKeySpec;
 public class Server {
 	Socket clientSocket = null;
 	PublicKey bobPublicKey;
+	PublicKey alicePublicKey;
 	PrivateKey bobPrivateKey;
 	DHParameterSpec dhSpec;
 	SecretKey atobSecretKey;
+	
 	
 	int bDHPrivate;
 	int bDHIntegrityPrivate;
@@ -50,6 +59,8 @@ public class Server {
 	public static void main(String args[])
     {
         Server server = new Server();
+        
+        
     }
 	
 	public Server(){
@@ -76,7 +87,15 @@ public class Server {
 		}
 		///////////////////////
         
-      //Reading in the values below
+		//Read in alices public key for future use.
+		try {
+			readAlicesKey();
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		///
+		
+		//Reading in the values below
         DataInputStream dIn;
 		try {
 			
@@ -184,7 +203,44 @@ public class Server {
 			System.out.println("New DH shared secret key: " +  Arrays.toString(btoaSecretKey.getEncoded()));
 			System.out.println("New DH shared Integrity key: " +  Arrays.toString(btoaIntegrityKey.getEncoded()));
 			
+			
+			//////////
+			
+			
+			///
+			
 		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		///We now have all the keys setup at this point in the server program, so alice is now going to now send us 2000 byte message digitally signed
+		try {
+			
+			dIn = new DataInputStream(clientSocket.getInputStream());
+			int sigLength = dIn.readInt();
+			byte[] sigBytes = new byte[sigLength];
+			dIn.read(sigBytes);
+			
+			int messageLength = dIn.readInt();
+			byte [] aliceMessage = new byte[messageLength];
+			dIn.read(aliceMessage);
+			
+			Signature sig = Signature.getInstance("MD5WithRSA");
+		    sig.initVerify(alicePublicKey);
+			sig.update(sigBytes);
+			
+			MessageDigest md = MessageDigest.getInstance("SHA-256");
+			byte[] mdMessage = md.digest(aliceMessage);
+			
+			System.out.println("Read in Sigbytes: " + Arrays.toString(sigBytes) + "\nSignature verified? : " + sig.verify(mdMessage));
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		} catch (InvalidKeyException e) {
+			e.printStackTrace();
+		} catch (SignatureException e) {
 			e.printStackTrace();
 		}
 	
@@ -268,6 +324,30 @@ public class Server {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
+		
+	}
+	
+	public void readAlicesKey() throws IOException{
+		
+		FileInputStream keyfis = new FileInputStream("AlicePublicKey");
+		byte[] encKey = new byte[keyfis.available()];  
+		keyfis.read(encKey);
+		
+		X509EncodedKeySpec pubKeySpec = new X509EncodedKeySpec(encKey);
+		KeyFactory keyFactory;
+		try {
+			keyFactory = KeyFactory.getInstance("RSA");
+			alicePublicKey = keyFactory.generatePublic(pubKeySpec);
+			
+		} catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InvalidKeySpecException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		//System.out.println("Read in alice's public key: " + alicePublicKey);
 		
 		
 	}

@@ -3,6 +3,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -15,9 +16,12 @@ import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.Signature;
+import java.security.SignatureException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAPublicKeySpec;
 import java.security.spec.X509EncodedKeySpec;
@@ -64,6 +68,10 @@ public class Client {
 		byte [] encryptedintegrityKey = null;
 		
 		byte[] message = {'1','a','b','c','1','a','b','c','1','a','b','c','1','a','b','c'};
+		
+		byte[] aliceMessage = new byte[2000];
+		for(int x = 0; x<2000; x++)
+			aliceMessage[x] = 'a';
         
 		//Encrypt the secret key generated in the client
 		try {
@@ -175,6 +183,61 @@ public class Client {
 			e.printStackTrace();
 		}
 		/////////////////////////////////////////////
+		
+		//We are done computing the secretkey values at this point in the program, so now we need to send the aliceMessage
+		//2000 byte message encrypted using AES signed wtih RSA digital signature over the hash of the message
+		
+		//Compute hash of the message first
+		MessageDigest md;
+		try {
+			md = MessageDigest.getInstance("SHA-256");
+			byte[] mdMessage = md.digest(aliceMessage);
+			
+			//Set up signature
+			Signature sig = Signature.getInstance("MD5WithRSA");
+		    sig.initSign(client.getAlicePrivateKey());
+		    sig.update(mdMessage);
+			
+		    //Encrypt message using AES
+		    Cipher AESencrypt = Cipher.getInstance("AES/ECB/NoPadding");
+			AESencrypt.init(Cipher.ENCRYPT_MODE, client.getatobSecretKey());
+			byte[] cipherText;
+			cipherText = AESencrypt.doFinal(aliceMessage);
+			
+		    dos = new DataOutputStream(client.getServerSocket().getOutputStream());
+		    byte[] sigByte = sig.sign();
+		    System.out.println("Signing message with: " + Arrays.toString(sigByte));
+		    
+		    //Write the signature
+		    dos.writeInt(sigByte.length);
+		    dos.write(sigByte);
+		    
+		    //Write the encrypted message
+		    dos.writeInt(cipherText.length);
+		    dos.write(cipherText);
+		    
+			
+			
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		} catch (InvalidKeyException e) {
+			e.printStackTrace();
+		} catch (SignatureException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (NoSuchPaddingException e) {
+			e.printStackTrace();
+		} catch (IllegalBlockSizeException e) {
+			e.printStackTrace();
+		} catch (BadPaddingException e) {
+			e.printStackTrace();
+		}
+		
+		///////////////////////
+		
+		
+		///End of program////
     }
 	
 	private SecretKey getIntegrityKey() {
@@ -231,7 +294,9 @@ public class Client {
 		return bobPublicKey;
 	}
 
-
+	private PrivateKey getAlicePrivateKey(){
+		return alicePrivateKey;
+	}
 	public Client(){
 		
 		try {
@@ -250,6 +315,19 @@ public class Client {
 					alicePrivateKey = kp.getPrivate();
 					System.out.println("Key Generation Done for Alice.");
 					////////////////
+					
+					//Store alice's Public Key to be accessed by anyone
+					byte[] bytePublicKey = alicePublicKey.getEncoded();
+
+					try {
+						FileOutputStream keyfos = new FileOutputStream("AlicePublicKey");
+						keyfos.write(bytePublicKey);
+						keyfos.close();
+					} catch (IOException e) {
+					
+						e.printStackTrace();
+					}
+					//////////////////////
 					
 					//Generate Secret Key to be sent to Bob
 					KeyGenerator keyGen = KeyGenerator.getInstance("AES");
