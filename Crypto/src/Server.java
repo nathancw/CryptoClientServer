@@ -38,10 +38,14 @@ public class Server {
 	SecretKey atobSecretKey;
 	
 	int bDHPrivate;
+	int bDHIntegrityPrivate;
 	BigInteger gBigInt;
 	BigInteger pBigInt;
 	BigInteger secretKeyBigInt;
+	BigInteger integrityKeyBigInt;
 	SecretKey btoaSecretKey;
+	SecretKey atobIntegrityKey;
+	SecretKey btoaIntegrityKey;
 	
 	public static void main(String args[])
     {
@@ -72,41 +76,55 @@ public class Server {
 		}
 		///////////////////////
         
-      
+      //Reading in the values below
         DataInputStream dIn;
 		try {
 			
 			dIn = new DataInputStream(clientSocket.getInputStream());
-			byte[] message;
+			//Read in encrypted shared key
+			byte[] atobKey;
 	        int length = dIn.readInt(); 
-	        message = new byte[length];
-	        dIn.read(message); 
+	        atobKey = new byte[length];
+	        dIn.read(atobKey); 
+	        
+	        //Read in integrity Key
+	        byte[] integrityKey;
+	        int length2 = dIn.readInt();
+	        integrityKey = new byte[length2];
+	        dIn.read(integrityKey);
 	        
 	        //Read in second message length and size
-	        int length2 = dIn.readInt();
-	        byte [] secretMessage = new byte[length2];
+	        int length3 = dIn.readInt();
+	        byte [] secretMessage = new byte[length3];
 	        dIn.read(secretMessage);
 	        
-	        System.out.println("\nReceived Text from Alice: " + Arrays.toString(message));
+	        System.out.println("\nReceived Text from Alice: " + Arrays.toString(atobKey));
 	        
 	        //Decrypt the text
-	        byte[] decryptedText;
+	        byte[] decryptedsecretKey;
+	        byte[] decryptedIntegrityKey;
 	        byte[] decryptedMessage;
 	        
 	    	Cipher RSAdecrypt = Cipher.getInstance("RSA/ECB/NoPadding");
 			RSAdecrypt.init(Cipher.DECRYPT_MODE, bobPrivateKey);
 			
 			//This produces a massive 128 byte key instead of 128bits
-			decryptedText = RSAdecrypt.doFinal(message);
+			decryptedsecretKey = RSAdecrypt.doFinal(atobKey);
+			decryptedIntegrityKey = RSAdecrypt.doFinal(integrityKey);
 			
 			//Get last 16 bytes for our 128 bit AES secretkey
-			byte[] byte16Key = new byte[16];
-			for(int x = 0; x < 16; x++)
-				byte16Key[x] = decryptedText[127-15+x];
+			byte[] byte16SecretKey = new byte[16];
+			byte[] byte16IntegrityKey = new byte[16];
+			for(int x = 0; x < 16; x++){
+				byte16SecretKey[x] = decryptedsecretKey[127-15+x];
+				byte16IntegrityKey[x] = decryptedIntegrityKey[127-15+x];
+			}
 	       
 			//Change decrypted text to secret key again
-			atobSecretKey = new SecretKeySpec(byte16Key, 0, byte16Key.length, "AES");
+			atobSecretKey = new SecretKeySpec(byte16SecretKey, 0, byte16SecretKey.length, "AES");
+			atobIntegrityKey = new SecretKeySpec(byte16IntegrityKey, 0, byte16IntegrityKey.length, "AES");
 			System.out.println("\nGot secret Key from Alice: " + Arrays.toString(atobSecretKey.getEncoded()));
+			System.out.println("\nGot Integrity Key from Alice: " + Arrays.toString(atobIntegrityKey.getEncoded()));
 			
 			//Decrypt cipher of sharedSecretKey
 			Cipher AESdecrypt = Cipher.getInstance("AES/ECB/NoPadding");
@@ -138,19 +156,33 @@ public class Server {
 		//Read in the values
 		int size;
 		try {
+			//Read in secret key first 
 			dIn = new DataInputStream(clientSocket.getInputStream());
 			size = dIn.readInt();
-			byte[] number = new byte[size];
-			dIn.read(number);
-			BigInteger aliceNum = new BigInteger(number);
-			System.out.println("Read in Alice's NUmber.");
-
-			this.secretKeyBigInt = aliceNum.pow(bDHPrivate).mod(pBigInt);
-			System.out.println("Computed Shared Secret Key DH Value: " + secretKeyBigInt);
+			byte[] secretKeynumber = new byte[size];
+			dIn.read(secretKeynumber);
+			BigInteger aliceSecretNum = new BigInteger(secretKeynumber);
 			
+			//Read in integrity key number
+			int size2 = dIn.readInt();
+			byte[] integrityKeynumber = new byte[size2];
+			dIn.read(integrityKeynumber);
+			BigInteger aliceIntegrityNum = new BigInteger(integrityKeynumber);
+			System.out.println("Read in Alice's NUmber.");
+			
+			//Compute the biginteger values of each
+			this.secretKeyBigInt = aliceSecretNum.pow(bDHPrivate).mod(pBigInt);
+			this.integrityKeyBigInt = aliceIntegrityNum.pow(bDHIntegrityPrivate).mod(pBigInt);
+			
+			System.out.println("Computed Shared Secret Key DH Value: " + secretKeyBigInt);
+			System.out.println("Computed Shared Integrity Key DH Value: " + integrityKeyBigInt);
+			
+			//Make them into actual SecretKeys
 			btoaSecretKey = new SecretKeySpec(secretKeyBigInt.toByteArray(), 0, secretKeyBigInt.toByteArray().length, "AES");
+			btoaIntegrityKey = new SecretKeySpec(integrityKeyBigInt.toByteArray(), 0, integrityKeyBigInt.toByteArray().length, "AES");
 			
 			System.out.println("New DH shared secret key: " +  Arrays.toString(btoaSecretKey.getEncoded()));
+			System.out.println("New DH shared Integrity key: " +  Arrays.toString(btoaIntegrityKey.getEncoded()));
 			
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -209,19 +241,27 @@ public class Server {
 			byte[] g = gBigInt.toByteArray();
 			
 			bDHPrivate = 132;
+			bDHIntegrityPrivate = 258;
 			
 			System.out.println("Generated byte arrays of g,p, and bobprivate.");
 			
-			BigInteger bobValue = gBigInt.pow(bDHPrivate).mod(pBigInt);
-			System.out.println("bobValue: " + bobValue);
+			BigInteger bobSecretValue = gBigInt.pow(bDHPrivate).mod(pBigInt);
+			BigInteger bobIntegrityValue = gBigInt.pow(bDHIntegrityPrivate).mod(pBigInt);
+			System.out.println("Generated in Bob DH SecretKey Value: " + bobSecretValue + ", DH IntegrityKey Value: " + bobIntegrityValue);
 			dout.writeInt(p.length);
 			dout.write(p);
 			
 			dout.writeInt(g.length);
 			dout.write(g);
 			
-			dout.writeInt(bobValue.toByteArray().length);
-			dout.write(bobValue.toByteArray());
+			//Write secret key value
+			dout.writeInt(bobSecretValue.toByteArray().length);
+			dout.write(bobSecretValue.toByteArray());
+			
+			//Write integrity key value
+			dout.writeInt(bobIntegrityValue.toByteArray().length);
+			dout.write(bobIntegrityValue.toByteArray());
+			
 			System.out.println("Done Sending all the values over to Alice");
 			
 			

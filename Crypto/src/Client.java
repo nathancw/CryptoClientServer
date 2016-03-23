@@ -34,6 +34,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class Client {
 
+	//Alice
 	Socket serverSocket;
 	String timeStamp;
 	String alicepubKey;
@@ -44,16 +45,23 @@ public class Client {
 	SecretKey atobSecretKey;
 	int aliceDHPrivate;
 	BigInteger DHsecretKey;
-	BigInteger aliceValue;
+	BigInteger aliceSecretDHValue;
 	SecretKey btoaSecretKey;
+	SecretKey atobIntegritySecretKey;
+	SecretKey btoaIntegitySecretKey;
+	private int aliceDHIntegrityPrivate;
+	private BigInteger aliceIntegrityDHValue;
+	private BigInteger DHIntegrityKey;
 	
 	public static void main(String args[])
     {
         //Create connection and the keys
 		Client client = new Client();
-		byte[] secretKey;
-		byte [] encryptedText = null;
+		byte[] atobsecretKey;
+		byte[] atobIntegrityKey;
+		byte [] encryptedsecretKey = null;
 		byte [] encryptedMessage = null;
+		byte [] encryptedintegrityKey = null;
 		
 		byte[] message = {'1','a','b','c','1','a','b','c','1','a','b','c','1','a','b','c'};
         
@@ -63,14 +71,18 @@ public class Client {
 			try {
 				//Try to encrypt the key
 				RSAencrKey.init(Cipher.ENCRYPT_MODE, client.getBobPublicKey());
-				secretKey = client.getatobSecretKey().getEncoded();
+				
+				atobsecretKey = client.getatobSecretKey().getEncoded();
+				atobIntegrityKey = client.getIntegrityKey().getEncoded();
 				
 				Cipher AESencrypt = Cipher.getInstance("AES/ECB/NoPadding");
 				AESencrypt.init(Cipher.ENCRYPT_MODE, client.getatobSecretKey());
 				
 				try {
 					//Do the encryption.
-					encryptedText = RSAencrKey.doFinal(secretKey);
+					encryptedsecretKey = RSAencrKey.doFinal(atobsecretKey);
+					encryptedintegrityKey = RSAencrKey.doFinal(atobIntegrityKey);
+					
 					encryptedMessage = AESencrypt.doFinal(message);
 					
 				} catch (IllegalBlockSizeException e) {
@@ -88,18 +100,24 @@ public class Client {
 		}
        ///////////////////////////
 		
-		System.out.println("EncryptedText:" + encryptedText);
+		System.out.println("EncryptedText:" + encryptedsecretKey);
 		
 		//Send the key to the server
 		DataInputStream dIn;
 		DataOutputStream dos;
 		//Try to write the encrypted text to the server
 		try {
-			System.out.println("Sending text to bob: " + Arrays.toString(encryptedText));
+			System.out.println("Sending text to bob: " + Arrays.toString(encryptedsecretKey));
 			dos = new DataOutputStream(client.getServerSocket().getOutputStream());
-			dos.writeInt(encryptedText.length);
-			dos.write(encryptedText);
+			//Write the secret Key which is ecnrypted
+			dos.writeInt(encryptedsecretKey.length);
+			dos.write(encryptedsecretKey);
 			
+			//Write the encrypted integrity key
+			dos.writeInt(encryptedintegrityKey.length);
+			dos.write(encryptedintegrityKey);
+			
+			//Write the message
 			dos.writeInt(encryptedMessage.length);
 			dos.write(encryptedMessage);
 			
@@ -115,30 +133,43 @@ public class Client {
 		try {
 			System.out.println("Trying to read in the values for DH protocol from Bob.");
 			dIn = new DataInputStream(client.getServerSocket().getInputStream());
+			
+			//Read in p
 			int pLength = dIn.readInt();
 			byte[] p = new byte[pLength];
 			dIn.read(p);
 			BigInteger pValue = new BigInteger(p);
 			
-			
+			//Read in g
 			int gLength = dIn.readInt();
 			byte[] g = new byte[gLength];
 			dIn.read(g);
 			BigInteger gValue = new BigInteger(g);
 			
+			//Read in secret number value
 			int bLength = dIn.readInt();
 			byte[] b = new byte[bLength];
 			dIn.read(b);
 			BigInteger bValue = new BigInteger(b);
-		
-			System.out.println("Read in DH Values from Bob/Server P: " + pValue + " , G: " + gValue + " , bValue: " + bValue);
-			//Compute the values
-			client.computeDHValue(pValue,gValue,bValue);
-
-			dos = new DataOutputStream(client.getServerSocket().getOutputStream());
-			dos.writeInt(client.getAliceValue().toByteArray().length);
-			dos.write(client.getAliceValue().toByteArray());
 			
+			//Read in integrity value
+			int bLength2 = dIn.readInt();
+			byte[] b2 = new byte[bLength];
+			dIn.read(b2);
+			BigInteger bValue2 = new BigInteger(b2);
+		
+			System.out.println("Read in DH Values from Bob/Server P: " + pValue + " , G: " + gValue + " , bValue: " + bValue + " , bValue2: " + bValue2);
+			//Compute the values
+			client.computeDHValue(pValue,gValue,bValue,bValue2);
+
+			//Write first secret key value
+			dos = new DataOutputStream(client.getServerSocket().getOutputStream());
+			dos.writeInt(client.getAliceSecretDHValue().toByteArray().length);
+			dos.write(client.getAliceSecretDHValue().toByteArray());
+			
+			//Write integrity key value
+			dos.writeInt(client.getAliceIntegrityDHValue().toByteArray().length);
+			dos.write(client.getAliceIntegrityDHValue().toByteArray());
 		
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -146,8 +177,16 @@ public class Client {
 		/////////////////////////////////////////////
     }
 	
-	private BigInteger getAliceValue() {
-		return aliceValue;
+	private SecretKey getIntegrityKey() {
+		// TODO Auto-generated method stub
+		return atobIntegritySecretKey;
+	}
+
+	private BigInteger getAliceSecretDHValue() {
+		return aliceSecretDHValue;
+	}
+	private BigInteger getAliceIntegrityDHValue(){
+		return aliceIntegrityDHValue;
 	}
 
 	private BigInteger getDHsecretKey() {
@@ -155,19 +194,25 @@ public class Client {
 		return DHsecretKey;
 	}
 
-	public void computeDHValue(BigInteger p, BigInteger g, BigInteger bValue){
+	public void computeDHValue(BigInteger p, BigInteger g, BigInteger bValueSecret, BigInteger bValueIntegrity){
 		
 		this.aliceDHPrivate = 283;
-		this.aliceValue = g.pow(aliceDHPrivate).mod(p);
+		this.aliceDHIntegrityPrivate = 179;
+		this.aliceSecretDHValue = g.pow(aliceDHPrivate).mod(p);
+		this.aliceIntegrityDHValue = g.pow(aliceDHIntegrityPrivate).mod(p);
 		
-		System.out.println("Read in DH Values from Bob/Server inside computeDHValue AliceValue: " + aliceValue);
-		this.DHsecretKey = bValue.pow(aliceDHPrivate).mod(p);
+		System.out.println("Read in DH Values from Bob/Server inside computeDHValue AliceValue: " + aliceSecretDHValue);
+		this.DHsecretKey = bValueSecret.pow(aliceDHPrivate).mod(p);
+		this.DHIntegrityKey = bValueIntegrity.pow(aliceDHIntegrityPrivate).mod(p);
 		
 		System.out.println("Got DHSecretKey: " + DHsecretKey);
+		System.out.println("Got DHIntegrityKey: " + DHIntegrityKey);
 		
 		btoaSecretKey = new SecretKeySpec(DHsecretKey.toByteArray(), 0, DHsecretKey.toByteArray().length, "AES");
+		btoaIntegitySecretKey = new SecretKeySpec(DHIntegrityKey.toByteArray(), 0, DHIntegrityKey.toByteArray().length, "AES");
 		
 		System.out.println("New DH shared secret key: " + Arrays.toString(btoaSecretKey.getEncoded()));
+		System.out.println("New DH shared Integrity key: " + Arrays.toString(btoaIntegitySecretKey .getEncoded()));
 		
 	}
 	
@@ -210,7 +255,9 @@ public class Client {
 					KeyGenerator keyGen = KeyGenerator.getInstance("AES");
 				    keyGen.init(128);
 				    atobSecretKey = keyGen.generateKey();
+				    atobIntegritySecretKey = keyGen.generateKey();
 				    System.out.println("Generated Secret Key in Alice: " + Arrays.toString(atobSecretKey.getEncoded()));
+				    System.out.println("Generated Integrity Secret Key in Alice: " + Arrays.toString(atobIntegritySecretKey.getEncoded()));
 		
 				} catch (NoSuchAlgorithmException e) {
 					// TODO Auto-generated catch block
