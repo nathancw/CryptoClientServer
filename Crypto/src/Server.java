@@ -124,10 +124,12 @@ public class Server {
 	        byte[] decryptedIntegrityKey;
 	        byte[] decryptedMessage;
 	        
+	        //Set up RSA decryption
 	    	Cipher RSAdecrypt = Cipher.getInstance("RSA/ECB/NoPadding");
 			RSAdecrypt.init(Cipher.DECRYPT_MODE, bobPrivateKey);
 			
 			//This produces a massive 128 byte key instead of 128bits
+			//Decrypt the secretkeys and store in byte arrays
 			decryptedsecretKey = RSAdecrypt.doFinal(atobKey);
 			decryptedIntegrityKey = RSAdecrypt.doFinal(integrityKey);
 			
@@ -172,7 +174,7 @@ public class Server {
 		sendDHProtocol();
 		////////////////////////////////////////////////////////
 		
-		//Read in the values
+		//Read in the DH values and compute the  two keys, the secret key and the integrity key
 		int size;
 		try {
 			//Read in secret key first 
@@ -202,11 +204,6 @@ public class Server {
 			
 			System.out.println("New DH shared secret key: " +  Arrays.toString(btoaSecretKey.getEncoded()));
 			System.out.println("New DH shared Integrity key: " +  Arrays.toString(btoaIntegrityKey.getEncoded()));
-			
-			
-			//////////
-			
-			
 			///
 			
 		} catch (IOException e) {
@@ -217,22 +214,39 @@ public class Server {
 		try {
 			
 			dIn = new DataInputStream(clientSocket.getInputStream());
-			int sigLength = dIn.readInt();
-			byte[] sigBytes = new byte[sigLength];
-			dIn.read(sigBytes);
 			
+			//Read in the message and the length, this is the combined message of the encryption of the message + signature
 			int messageLength = dIn.readInt();
-			byte [] aliceMessage = new byte[messageLength];
-			dIn.read(aliceMessage);
+			byte [] aliceCipher = new byte[messageLength];
+			dIn.read(aliceCipher);
 			
-			Signature sig = Signature.getInstance("MD5WithRSA");
+			//AES Decrypt
+			Cipher AESdecrypt = Cipher.getInstance("AES/ECB/NoPadding");
+			AESdecrypt.init(Cipher.DECRYPT_MODE, atobSecretKey);
+			byte[] aliceDecrypted =  AESdecrypt.doFinal(aliceCipher);
+			
+			System.out.println("Alice decrypted cipher text: " + Arrays.toString(aliceDecrypted));
+			
+			//Grab the first 2000 byte message,this is the original message
+			byte[] aliceMessage = new byte[2000];
+			for(int x = 0; x<2000; x++){
+				aliceMessage[x] = aliceDecrypted[x];
+			}
+			
+			//Get signature bytes by just grabbing all the bytes after the 2000 byte message
+			byte[] sigBytes = new byte[aliceDecrypted.length-2000];
+			for(int x = 0; x<aliceDecrypted.length-2000; x++){
+				sigBytes[x] = aliceDecrypted[x+2000];
+			}
+			
+			//Set the verification signature
+			Signature sig = Signature.getInstance("SHA256WithRSA");
 		    sig.initVerify(alicePublicKey);
-			sig.update(sigBytes);
+			sig.update(aliceMessage);
 			
-			MessageDigest md = MessageDigest.getInstance("SHA-256");
-			byte[] mdMessage = md.digest(aliceMessage);
-			
-			System.out.println("Read in Sigbytes: " + Arrays.toString(sigBytes) + "\nSignature verified? : " + sig.verify(mdMessage));
+			//Print if signature is verified
+			boolean verified = sig.verify(sigBytes);
+			System.out.println("Read in Sigbytes: " + Arrays.toString(sigBytes) + "\nSignature verified? : " + verified);
 			
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -242,8 +256,16 @@ public class Server {
 			e.printStackTrace();
 		} catch (SignatureException e) {
 			e.printStackTrace();
+		} catch (NoSuchPaddingException e) {
+			e.printStackTrace();
+		} catch (IllegalBlockSizeException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (BadPaddingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-	
+	///////////////////////////////////
 	}
 	
 	public void generateAndStoreKeys(){

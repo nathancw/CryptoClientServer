@@ -190,27 +190,37 @@ public class Client {
 		//Compute hash of the message first
 		MessageDigest md;
 		try {
-			md = MessageDigest.getInstance("SHA-256");
-			byte[] mdMessage = md.digest(aliceMessage);
+			//md = MessageDigest.getInstance("SHA-256");
+			//byte[] mdMessage = md.digest(aliceMessage);
 			
 			//Set up signature
-			Signature sig = Signature.getInstance("MD5WithRSA");
+			Signature sig = Signature.getInstance("SHA256WithRSA");
 		    sig.initSign(client.getAlicePrivateKey());
-		    sig.update(mdMessage);
+		    sig.update(aliceMessage);
 			
 		    //Encrypt message using AES
 		    Cipher AESencrypt = Cipher.getInstance("AES/ECB/NoPadding");
 			AESencrypt.init(Cipher.ENCRYPT_MODE, client.getatobSecretKey());
+			
+			//Combine both the message and signature into one array
+			byte[] sigByte = sig.sign();
+			byte[] combined = new byte[aliceMessage.length + sigByte.length];
+
+			for (int i = 0; i < combined.length; ++i)
+			{
+			    combined[i] = i < aliceMessage.length ? aliceMessage[i] : sigByte[i - aliceMessage.length];
+			}
+			
+			//Ecnrypt the combined message for more security
 			byte[] cipherText;
-			cipherText = AESencrypt.doFinal(aliceMessage);
+			cipherText = AESencrypt.doFinal(combined);
 			
 		    dos = new DataOutputStream(client.getServerSocket().getOutputStream());
-		    byte[] sigByte = sig.sign();
 		    System.out.println("Signing message with: " + Arrays.toString(sigByte));
 		    
 		    //Write the signature
-		    dos.writeInt(sigByte.length);
-		    dos.write(sigByte);
+		    //dos.writeInt(sigByte.length);
+		    //dos.write(sigByte);
 		    
 		    //Write the encrypted message
 		    dos.writeInt(cipherText.length);
