@@ -254,6 +254,7 @@ public class Client {
 			//Read in cipher text
 			int length = dIn.readInt();
 			byte[] cipherText = new byte[length];
+			dIn.read(cipherText);
 			
 			//Set up AES decrypt
 			Cipher AESdecrypt = Cipher.getInstance("AES/ECB/NoPadding");
@@ -262,10 +263,11 @@ public class Client {
 			//Decrypt bobs cipher text
 			byte[] bobDecrypted = AESdecrypt.doFinal(cipherText);
 			
+			System.out.println("Bob decrypted message with HMAC: " + Arrays.toString(bobDecrypted));
 			//Grab the first 1000 byte message,this is the original message
 			byte[] bobMessage = new byte[1000];
 			for(int x = 0; x<1000; x++){
-				aliceMessage[x] = bobDecrypted[x];
+				bobMessage[x] = bobDecrypted[x];
 			}
 			
 			//Get signature bytes by just grabbing all the bytes after the 2000 byte message
@@ -338,7 +340,8 @@ public class Client {
 		System.out.println("Got DHSecretKey: " + DHsecretKey);
 		System.out.println("Got DHIntegrityKey: " + DHIntegrityKey);
 		
-		btoaSecretKey = new SecretKeySpec(DHsecretKey.toByteArray(), 0, DHsecretKey.toByteArray().length, "AES");
+		int subValue = DHsecretKey.toByteArray().length - 16;
+		btoaSecretKey = new SecretKeySpec(DHsecretKey.toByteArray(), 0, DHsecretKey.toByteArray().length-subValue, "AES");
 		btoaIntegitySecretKey = new SecretKeySpec(DHIntegrityKey.toByteArray(), 0, DHIntegrityKey.toByteArray().length, "AES");
 		
 		System.out.println("New DH shared secret key: " + Arrays.toString(btoaSecretKey.getEncoded()));

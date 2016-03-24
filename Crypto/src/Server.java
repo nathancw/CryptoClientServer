@@ -201,7 +201,9 @@ public class Server {
 			System.out.println("Computed Shared Integrity Key DH Value: " + integrityKeyBigInt);
 			
 			//Make them into actual SecretKeys
-			btoaSecretKey = new SecretKeySpec(secretKeyBigInt.toByteArray(), 0, secretKeyBigInt.toByteArray().length, "AES");
+			int subValue = secretKeyBigInt.toByteArray().length - 16;
+			btoaSecretKey = new SecretKeySpec(secretKeyBigInt.toByteArray(), 0, secretKeyBigInt.toByteArray().length-subValue, "AES");
+			
 			btoaIntegrityKey = new SecretKeySpec(integrityKeyBigInt.toByteArray(), 0, integrityKeyBigInt.toByteArray().length, "AES");
 			
 			System.out.println("New DH shared secret key: " +  Arrays.toString(btoaSecretKey.getEncoded()));
@@ -289,13 +291,16 @@ public class Server {
 			AESencrypt.init(Cipher.ENCRYPT_MODE, btoaSecretKey);
 			
 			//Combine the message and the HMAC
-			byte[] combinedMessage = new byte[bobMessage.length + HMACdigest.length];
-			for (int i = 0; i < combinedMessage.length; ++i)
+			//The plus 8 is so it is an accurate length
+			byte[] combinedMessage = new byte[bobMessage.length + HMACdigest.length + 8];
+			for (int i = 0; i < combinedMessage.length-8; ++i)
 			{
 			    combinedMessage[i] = i < bobMessage.length ? bobMessage[i] : HMACdigest[i - bobMessage.length];
 			}
 			
-			//Encrypt the combinedMessage using AES
+			System.out.println("Combined message: " + Arrays.toString(combinedMessage) + " , length: " + combinedMessage.length);
+			
+			//Encrypt the combinedMessage using AES. I had to increase th einput legnth to be a size multiple of 128 bits so we can encrypt it
 			byte[] cipherText = AESencrypt.doFinal(combinedMessage);
 			
 			DataOutputStream dos = new DataOutputStream(clientSocket.getOutputStream());
