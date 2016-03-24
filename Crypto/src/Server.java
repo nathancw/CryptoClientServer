@@ -32,6 +32,7 @@ import java.util.Arrays;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.DHParameterSpec;
@@ -70,7 +71,7 @@ public class Server {
 		//Generate DH values, and pub/priv keys for storage so alice can pick them up
 		this.generateAndStoreKeys();
 		////////////////////
-		
+	
 		//Set up connection
 		ServerSocket connection;
 		try {
@@ -100,13 +101,13 @@ public class Server {
 		try {
 			
 			dIn = new DataInputStream(clientSocket.getInputStream());
-			//Read in encrypted shared key
+			//Read in RSA encrypted shared key from Alice
 			byte[] atobKey;
 	        int length = dIn.readInt(); 
 	        atobKey = new byte[length];
 	        dIn.read(atobKey); 
 	        
-	        //Read in integrity Key
+	        //Read in RSA integrity Key from Alice
 	        byte[] integrityKey;
 	        int length2 = dIn.readInt();
 	        integrityKey = new byte[length2];
@@ -169,6 +170,7 @@ public class Server {
 		}
       	
 		
+		//Send our DH Protocol below
 		//DH Protocol Send G and P and the value to the Client for generate secret Key
 		System.out.println("Sending DH Protocol over to Alice");
 		sendDHProtocol();
@@ -177,14 +179,14 @@ public class Server {
 		//Read in the DH values and compute the  two keys, the secret key and the integrity key
 		int size;
 		try {
-			//Read in secret key first 
+			//Read in DH secret key first from Alice
 			dIn = new DataInputStream(clientSocket.getInputStream());
 			size = dIn.readInt();
 			byte[] secretKeynumber = new byte[size];
 			dIn.read(secretKeynumber);
 			BigInteger aliceSecretNum = new BigInteger(secretKeynumber);
 			
-			//Read in integrity key number
+			//Read in DH integrity key number from Alice
 			int size2 = dIn.readInt();
 			byte[] integrityKeynumber = new byte[size2];
 			dIn.read(integrityKeynumber);
@@ -265,7 +267,57 @@ public class Server {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-	///////////////////////////////////
+		///////////////////////////////////
+		//Last part step 3
+		//HMAC 1000 byte message and send to bob
+		
+		//Set up bobs message
+		byte[] bobMessage = new byte[1000];
+		for(int x = 0; x<1000; x++)
+			bobMessage[x] = 'b';
+		
+		//Now we try to set up the MAC nd send the encrypted text over to alice
+		try {
+			
+			//Set up Mac
+			Mac mac = Mac.getInstance("HmacSHA256");
+			mac.init(btoaIntegrityKey);
+			byte[] HMACdigest = mac.doFinal(bobMessage);
+			
+			//Set up AES encryption ciphers
+			Cipher AESencrypt = Cipher.getInstance("AES/ECB/NoPadding");
+			AESencrypt.init(Cipher.ENCRYPT_MODE, btoaSecretKey);
+			
+			//Combine the message and the HMAC
+			byte[] combinedMessage = new byte[bobMessage.length + HMACdigest.length];
+			for (int i = 0; i < combinedMessage.length; ++i)
+			{
+			    combinedMessage[i] = i < bobMessage.length ? bobMessage[i] : HMACdigest[i - bobMessage.length];
+			}
+			
+			//Encrypt the combinedMessage using AES
+			byte[] cipherText = AESencrypt.doFinal(combinedMessage);
+			
+			DataOutputStream dos = new DataOutputStream(clientSocket.getOutputStream());
+			dos.writeInt(cipherText.length);
+			dos.write(cipherText);
+			System.out.println("Done sending Alice the 1000 byte message and HMAC");
+			
+			
+		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		} catch (NoSuchPaddingException e) {
+			e.printStackTrace();
+		} catch (IllegalBlockSizeException e) {
+			e.printStackTrace();
+		} catch (BadPaddingException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		
+		
 	}
 	
 	public void generateAndStoreKeys(){

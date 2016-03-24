@@ -32,6 +32,7 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -245,11 +246,67 @@ public class Client {
 		}
 		
 		///////////////////////
+		//Now we just have to read in the 1000 byte message and verify the HMAC 
+		
+		try {
+			dIn = new DataInputStream(client.getServerSocket().getInputStream());
+			
+			//Read in cipher text
+			int length = dIn.readInt();
+			byte[] cipherText = new byte[length];
+			
+			//Set up AES decrypt
+			Cipher AESdecrypt = Cipher.getInstance("AES/ECB/NoPadding");
+			AESdecrypt.init(Cipher.DECRYPT_MODE, client.getbtoaSecretKey());
+			
+			//Decrypt bobs cipher text
+			byte[] bobDecrypted = AESdecrypt.doFinal(cipherText);
+			
+			//Grab the first 1000 byte message,this is the original message
+			byte[] bobMessage = new byte[1000];
+			for(int x = 0; x<1000; x++){
+				aliceMessage[x] = bobDecrypted[x];
+			}
+			
+			//Get signature bytes by just grabbing all the bytes after the 2000 byte message
+			byte[] sigBytes = new byte[bobDecrypted.length-1000];
+			for(int x = 0; x<bobDecrypted.length-1000; x++){
+				sigBytes[x] = bobDecrypted[x+1000];
+			}
+			
+			//Set up mac
+			Mac mac = Mac.getInstance("HmacSHA256");
+			mac.init(client.getbtoaIntegrityKey());
+			
+			//Set up HMAC so we can verify they are the same
+			byte[] HMACdigest = mac.doFinal(bobMessage);
+			
+			//Set up the verify for loop to see if bytes match. If one is off they don't match and it is false
+			boolean verified = true;
+			for(int x = 0; x < HMACdigest.length; x++)
+				if(sigBytes[x] != HMACdigest[x])
+					verified = false;
+			System.out.println("Read in from Bob: " + Arrays.toString(bobMessage) + "\n Verified the HMAC signature: " + verified);
+			
+		} catch (IOException | NoSuchAlgorithmException 
+				| NoSuchPaddingException | InvalidKeyException 
+				| IllegalBlockSizeException | BadPaddingException e) {
+			e.printStackTrace();
+		}
 		
 		
 		///End of program////
     }
 	
+	private Key getbtoaIntegrityKey() {
+		// TODO Auto-generated method stub
+		return btoaIntegitySecretKey;
+	}
+
+	private Key getbtoaSecretKey() {
+		return btoaSecretKey;
+	}
+
 	private SecretKey getIntegrityKey() {
 		// TODO Auto-generated method stub
 		return atobIntegritySecretKey;
