@@ -109,14 +109,14 @@ public class Client {
 		}
        ///////////////////////////
 		
-		System.out.println("EncryptedText:" + encryptedsecretKey);
+		//System.out.println("EncryptedText:" + encryptedsecretKey);
 		
 		//Send the key to the server
 		DataInputStream dIn;
 		DataOutputStream dos;
 		//Try to write the encrypted text to the server
 		try {
-			System.out.println("Sending text to bob: " + Arrays.toString(encryptedsecretKey));
+			System.out.println("Sending encrypted secret key to bob: " + Arrays.toString(encryptedsecretKey));
 			dos = new DataOutputStream(client.getServerSocket().getOutputStream());
 			//Write the secret Key which is ecnrypted
 			dos.writeInt(encryptedsecretKey.length);
@@ -288,7 +288,7 @@ public class Client {
 			for(int x = 0; x < HMACdigest.length; x++)
 				if(sigBytes[x] != HMACdigest[x])
 					verified = false;
-			System.out.println("Read in from Bob: " + Arrays.toString(bobMessage) + "\n Verified the HMAC signature: " + verified);
+			System.out.println("Read in BobMessage without HMAC: " + Arrays.toString(bobMessage) + "\nVerified the HMAC signature: " + verified);
 			
 		} catch (IOException | NoSuchAlgorithmException 
 				| NoSuchPaddingException | InvalidKeyException 
@@ -337,15 +337,15 @@ public class Client {
 		this.DHsecretKey = bValueSecret.pow(aliceDHPrivate).mod(p);
 		this.DHIntegrityKey = bValueIntegrity.pow(aliceDHIntegrityPrivate).mod(p);
 		
-		System.out.println("Got DHSecretKey: " + DHsecretKey);
-		System.out.println("Got DHIntegrityKey: " + DHIntegrityKey);
+		System.out.println("\nGot DHSecretKey: " + DHsecretKey);
+		System.out.println("\nGot DHIntegrityKey: " + DHIntegrityKey);
 		
 		int subValue = DHsecretKey.toByteArray().length - 16;
 		btoaSecretKey = new SecretKeySpec(DHsecretKey.toByteArray(), 0, DHsecretKey.toByteArray().length-subValue, "AES");
 		btoaIntegitySecretKey = new SecretKeySpec(DHIntegrityKey.toByteArray(), 0, DHIntegrityKey.toByteArray().length, "AES");
 		
-		System.out.println("New DH shared secret key: " + Arrays.toString(btoaSecretKey.getEncoded()));
-		System.out.println("New DH shared Integrity key: " + Arrays.toString(btoaIntegitySecretKey .getEncoded()));
+		System.out.println("\nNew DH shared secret key: " + Arrays.toString(btoaSecretKey.getEncoded()));
+		System.out.println("\nNew DH shared Integrity key: " + Arrays.toString(btoaIntegitySecretKey .getEncoded()) + "\n");
 		
 	}
 	
@@ -404,8 +404,8 @@ public class Client {
 				    keyGen.init(128);
 				    atobSecretKey = keyGen.generateKey();
 				    atobIntegritySecretKey = keyGen.generateKey();
-				    System.out.println("Generated Secret Key in Alice: " + Arrays.toString(atobSecretKey.getEncoded()));
-				    System.out.println("Generated Integrity Secret Key in Alice: " + Arrays.toString(atobIntegritySecretKey.getEncoded()));
+				    System.out.println("\nGenerated Secret Key in Alice: " + Arrays.toString(atobSecretKey.getEncoded()));
+				    System.out.println("Generated Integrity Secret Key in Alice: " + Arrays.toString(atobIntegritySecretKey.getEncoded()) + "\n");
 		
 				} catch (NoSuchAlgorithmException e) {
 					// TODO Auto-generated catch block

@@ -197,8 +197,8 @@ public class Server {
 			this.secretKeyBigInt = aliceSecretNum.pow(bDHPrivate).mod(pBigInt);
 			this.integrityKeyBigInt = aliceIntegrityNum.pow(bDHIntegrityPrivate).mod(pBigInt);
 			
-			System.out.println("Computed Shared Secret Key DH Value: " + secretKeyBigInt);
-			System.out.println("Computed Shared Integrity Key DH Value: " + integrityKeyBigInt);
+			System.out.println("\nComputed Shared Secret Key DH Value: " + secretKeyBigInt);
+			System.out.println("\nComputed Shared Integrity Key DH Value: " + integrityKeyBigInt);
 			
 			//Make them into actual SecretKeys
 			int subValue = secretKeyBigInt.toByteArray().length - 16;
@@ -206,8 +206,8 @@ public class Server {
 			
 			btoaIntegrityKey = new SecretKeySpec(integrityKeyBigInt.toByteArray(), 0, integrityKeyBigInt.toByteArray().length, "AES");
 			
-			System.out.println("New DH shared secret key: " +  Arrays.toString(btoaSecretKey.getEncoded()));
-			System.out.println("New DH shared Integrity key: " +  Arrays.toString(btoaIntegrityKey.getEncoded()));
+			System.out.println("\nNew DH shared secret key: " +  Arrays.toString(btoaSecretKey.getEncoded()));
+			System.out.println("\nNew DH shared Integrity key: " +  Arrays.toString(btoaIntegrityKey.getEncoded()) + "\n");
 			///
 			
 		} catch (IOException e) {
@@ -353,13 +353,13 @@ public class Server {
 			}
 		
 			 
-	    //Generate p and b for DH protocol
+	    //Generate p and b for DH protocol by using secure random generator
 	 	int bitLength = 512; // 512 bits
 	    SecureRandom rnd = new SecureRandom();
 	    pBigInt = BigInteger.probablePrime(bitLength, rnd);
 	    gBigInt = BigInteger.probablePrime(bitLength, rnd);
 	    
-	    System.out.println("pBigInt: " + pBigInt);
+	    //System.out.println("pBigInt: " + pBigInt);
 	    System.out.println("\n DH Pair generated. p: " + pBigInt + " , g: " + gBigInt);
 	  
 			
