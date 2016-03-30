@@ -405,7 +405,7 @@ public class Client {
 				    atobSecretKey = keyGen.generateKey();
 				    atobIntegritySecretKey = keyGen.generateKey();
 				    System.out.println("\nGenerated Secret Key in Alice: " + Arrays.toString(atobSecretKey.getEncoded()));
-				    System.out.println("Generated Integrity Secret Key in Alice: " + Arrays.toString(atobIntegritySecretKey.getEncoded()) + "\n");
+				    System.out.println("\nGenerated Integrity Secret Key in Alice: " + Arrays.toString(atobIntegritySecretKey.getEncoded()) + "\n");
 		
 				} catch (NoSuchAlgorithmException e) {
 					// TODO Auto-generated catch block
