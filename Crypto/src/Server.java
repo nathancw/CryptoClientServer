@@ -29,7 +29,7 @@ public class Server {
         socket = null;
 
         //Mention the amount of threads we want
-        serverThreads = new ServerThread[4];
+        serverThreads = new ServerThread[10];
         
         try {
             serverSocket = new ServerSocket(PORT);
@@ -85,13 +85,13 @@ public class Server {
     		orderNumber++;
     		
     		for(int x = 0 ; x < serverThreads.length; x++){
-
+    			System.out.println("trying to send order: " + orderNumber + " X: " + x);
     			if(serverThreads[x] != null){
 	    			if(serverThreads[x].getType().equals("Chef") || serverThreads[x].getType().equals("Waiter")){
-	    
+	    				System.out.println("sending order" + orderNumber + " to X: " + x);
 	    				serverThreads[x].send("Order Number: " + orderNumber + " " +str);
-	    			}
 	    			
+	    			}	
 	    		}
     		}
     	}
@@ -138,7 +138,7 @@ class ServerThread extends Thread {
         try {
 			while (((line = in.readLine()) != null)) {
 
-			        System.out.println("Server read: " + line + " inside thread: " + type);
+			        System.out.println("Server read: " + line);
 			        server.handle(line);
 
 			

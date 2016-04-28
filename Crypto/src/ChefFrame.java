@@ -18,6 +18,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -95,7 +96,8 @@ public class ChefFrame {
 		panel_3.add(lblOrdersRecieved, BorderLayout.NORTH);
 		
 		textArea = new JTextArea();
-		panel_3.add(textArea, BorderLayout.CENTER);
+		JScrollPane pane = new JScrollPane(textArea);
+		panel_3.add(pane, BorderLayout.CENTER);
 		textArea.setLineWrap(true);
 		
 		JPanel panel_2 = new JPanel();
@@ -130,6 +132,7 @@ public class ChefFrame {
 
 	public static void updateLabel(String str){
 		textArea.append(str + "\n");
+		textArea.setCaretPosition(textArea.getDocument().getLength());
 	}
 }
 
