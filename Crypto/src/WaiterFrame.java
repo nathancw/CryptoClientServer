@@ -101,7 +101,7 @@ public class WaiterFrame {
 		JPanel panel_2 = new JPanel();
 		contentPane.add(panel_2);
 		
-		JLabel lblorderNumber = new JLabel("Order Number Ready: ");
+		JLabel lblorderNumber = new JLabel("Table  exit: ");
 		panel_2.add(lblorderNumber);
 		
 		ordertextField = new JTextField();
