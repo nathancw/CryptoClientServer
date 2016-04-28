@@ -62,6 +62,9 @@ public class Client {
     {
         //Create connection and the keys
 		Client client = new Client();
+		////////
+		
+		
 		byte[] atobsecretKey;
 		byte[] atobIntegrityKey;
 		byte [] encryptedsecretKey = null;
@@ -91,7 +94,6 @@ public class Client {
 					//Do the encryption.
 					encryptedsecretKey = RSAencrKey.doFinal(atobsecretKey);
 					encryptedintegrityKey = RSAencrKey.doFinal(atobIntegrityKey);
-					
 					encryptedMessage = AESencrypt.doFinal(message);
 					
 				} catch (IllegalBlockSizeException e) {
@@ -279,6 +281,7 @@ public class Client {
 			//Set up mac
 			Mac mac = Mac.getInstance("HmacSHA256");
 			mac.init(client.getbtoaIntegrityKey());
+		
 			
 			//Set up HMAC so we can verify they are the same
 			byte[] HMACdigest = mac.doFinal(bobMessage);
